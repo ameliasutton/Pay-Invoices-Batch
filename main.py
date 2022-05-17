@@ -6,6 +6,7 @@ import json
 import folio_api_aneslin as api
 import requests
 
+
 class popupWindow:
     def __init__(self, text):
         self.popup = tk.Tk()
