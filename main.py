@@ -170,7 +170,7 @@ class inputSelectionMenu:
             payer = invoicePayer(self.config, self.logger, identifier_list)
         except Exception as e:
             if e.args[0] == 'Token rejected, new login credentials required':
-                loginMenu(self.config, self.logger, identifier_list, e.args[0])
+                loginMenu(self.config, e.args[0])
             else:
                 popupWindow(e)
         try:
@@ -206,11 +206,9 @@ class inputSelectionMenu:
 
 
 class loginMenu:
-    def __init__(self, config, logger=None, idlist=None, prompt=None):
+    def __init__(self, config, prompt=None):
         if not prompt:
             prompt = 'Please Input API Login Credentials:'
-        self.logger = logger
-        self.idlist = idlist
         # Read Config File
         self.configFileName = config
         try:
@@ -283,10 +281,8 @@ class loginMenu:
         popupWindow('Login Successful.\nToken Updated in config')
 
 
-
 if __name__ == "__main__":
     logger = logger('mark_paid_log')
     print("Launching...")
     print('\n****************************************************************************\n')
     inputSelectionMenu('config.json', logger)
-
