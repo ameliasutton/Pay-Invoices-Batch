@@ -3,6 +3,8 @@ import tkinter as tk
 import sys
 from logger import logger
 import json
+import folio_api_aneslin as api
+import requests
 
 class popupWindow:
     def __init__(self, text):
@@ -20,6 +22,7 @@ class popupWindow:
 
     def close(self):
         self.popup.destroy()
+
 
 class inputSelectionMenu:
     def __init__(self, config ,log):
@@ -90,16 +93,21 @@ class inputSelectionMenu:
         self.input.mainloop()
 
     def oneStep(self):
-        identifier_list = []
         try:
-            with open('input.txt', 'r') as inputFile:
-                for line in inputFile:
-                    identifier_list.append(int(line))
+            input_file = open('input.txt', 'r')
+            identifier_list = self.readInputFile(input_file)
         except Exception as e:
             print(e)
             popupWindow(e)
+            return -1
         try:
             payer = invoicePayer(self.config, self.logger, identifier_list)
+        except Exception as e:
+            if e.args[0] == 'Token rejected, new login credentials required':
+                loginMenu(self.config, self.logger, identifier_list, e.args[0])
+            else:
+                popupWindow(e)
+        try:
             print('\n****************************************************************************\n')
             print('OneStep Selected.')
             payer.batchPayInvoices()
@@ -115,16 +123,21 @@ class inputSelectionMenu:
             return -1
 
     def fileSelect(self):
-        identifier_list = []
         try:
-            with open(self.filePrompt.get(), 'r') as inputFile:
-                for line in inputFile:
-                    identifier_list.append(int(line))
+            input_file = open(self.filePrompt.get(), 'r')
+            identifier_list = self.readInputFile(input_file)
         except Exception as e:
             print(e)
             popupWindow(e)
+            return -1
         try:
             payer = invoicePayer(self.config, self.logger, identifier_list)
+        except Exception as e:
+            if e.args[0] == 'Token rejected, new login credentials required':
+                loginMenu(self.config, self.logger, identifier_list, e.args[0])
+            else:
+                popupWindow(e)
+        try:
             print('\n****************************************************************************\n')
             print('Named File Selected.')
             payer.batchPayInvoices()
@@ -155,6 +168,12 @@ class inputSelectionMenu:
             popupWindow('Input text must only consist of numbers and new lines.')
         try:
             payer = invoicePayer(self.config, self.logger, identifier_list)
+        except Exception as e:
+            if e.args[0] == 'Token rejected, new login credentials required':
+                loginMenu(self.config, self.logger, identifier_list, e.args[0])
+            else:
+                popupWindow(e)
+        try:
             print('\n****************************************************************************\n')
             print('Text Input Selected.')
             payer.batchPayInvoices()
@@ -168,6 +187,101 @@ class inputSelectionMenu:
             print(e)
             popupWindow(e)
             return -1
+
+    def readInputFile(self, input_file):
+        identifier_list = []
+        try:
+            for line in input_file:
+                try:
+                    identifier_list.append(int(line))
+                except Exception:
+                    raise Exception('Input text file must consist only of numbers and new lines')
+            if len(identifier_list) == 0:
+                raise Exception('Input text file must not be empty.')
+        except Exception as e:
+            print(e)
+            popupWindow(e)
+            raise(e)
+        return identifier_list
+
+
+class loginMenu:
+    def __init__(self, config, logger=None, idlist=None, prompt=None):
+        if not prompt:
+            prompt = 'Please Input API Login Credentials:'
+        self.logger = logger
+        self.idlist = idlist
+        # Read Config File
+        self.configFileName = config
+        try:
+            with open(config, "r") as c:
+                config = json.load(c)
+                url = config["url"]
+                tenant = config["tenant"]
+                token = config["token"]
+        except ValueError:
+            print(f"Config file \"{config}\" not found")
+            popupWindow(f"Config file \"{config}\" not found")
+
+        # Create Requester
+        try:
+            self.requester = api.requestObject(url, tenant)
+            self.requester.setToken(token)
+
+            # Create Session
+            headers = {'Content-Type': 'application/json',
+                       'x-okapi-tenant': config["tenant"],
+                       'x-okapi-token': self.requester.token,
+                       'Accept': 'application/json'}
+            self.session = requests.Session()
+            self.session.headers = headers
+        except Exception as e:
+            print(e)
+            popupWindow(e)
+
+        self.root = tk.Tk()
+        self.root.rowconfigure([0, 1, 2, 3], minsize=10)
+        self.root.columnconfigure([0, 1], minsize=10)
+
+        self.prompt = tk.Label(master=self.root, text=prompt, font='TkDefaultFont 12 bold')
+        self.prompt.grid(row=0, column=0, columnspan=2)
+
+        self.userPrompt = tk.Label(master=self.root, text='Username: ', font='TkDefaultFont 10 bold')
+        self.userPrompt.grid(row=1, column=0)
+
+        self.userInput = tk.Entry(master=self.root)
+        self.userInput.grid(row=1, column=1)
+
+        self.passPrompt = tk.Label(master=self.root, text='Password: ', font='TkDefaultFont 10 bold')
+        self.passPrompt.grid(row=2, column=0)
+
+        self.passInput = tk.Entry(master=self.root, show='*')
+        self.passInput.grid(row=2, column=1)
+
+        self.submit = tk.Button(master=self.root, text='Submit', command=self.Submit)
+        self.submit.grid(row=3, column=0, columnspan=2)
+
+        self.root.mainloop()
+
+    def Submit(self):
+        username = self.userInput.get()
+        password = self.passInput.get()
+        try:
+            self.requester.retrieveToken(username, password)
+        except Exception as e:
+            print(e)
+            popupWindow(e)
+
+        with open(self.configFileName, 'r') as old_config:
+            config = json.load(old_config)
+        config['token'] = self.requester.token
+        with open(self.configFileName, 'w') as new_config:
+            new_config.write(json.dumps(config, indent=4))
+
+        print('Login Successful. Token Updated in config')
+        self.root.destroy()
+        popupWindow('Login Successful.\nToken Updated in config')
+
 
 
 if __name__ == "__main__":

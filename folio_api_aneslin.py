@@ -23,6 +23,7 @@ class requestObject:
 
         }
 
+
 # makes post call to authn/login to request a fresh token
     def retrieveToken(self, userName, Password):
 
@@ -33,13 +34,13 @@ class requestObject:
         connection_url = self.url + "authn/login"
         login = requests.post(connection_url, headers=headers, data=json.dumps(payload), timeout=10)
         if login.status_code == 408:
-            sys.exit("Login Request Timed Out")
+            raise TimeoutError('Request timed out.')
         try:
             self.token = login.headers['x-okapi-token']
-
         except KeyError:
             print(login.text)
-            sys.exit("Login Failed")
+            raise KeyError('Login Failed.')
+        return 0
 
 # Sets token if provided
     def setToken(self, t):
@@ -52,9 +53,6 @@ class requestObject:
         connection_url = self.url + "invoice/invoices?query=limit=0"
         test = requests.get(connection_url, headers=headers)
         if test.status_code == 401:
-            print("Token Failed with status code: 401")
-            print("Please input updated username and password...")
-            self.retrieveToken(input("Username: "), input("Password: "))
             return -1
         else:
             return 0

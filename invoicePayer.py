@@ -6,11 +6,10 @@ from logger import logger
 
 class invoicePayer:
 
-    def __init__(self, config: str, log: logger, identifiers: list[int] = None):
+    def __init__(self, config: str, log: logger, identifiers: list[int]):
         self.log = log
         print('Initializing Invoice Payer...')
-        if identifiers:
-            self.identifiers = identifiers
+        self.identifiers = identifiers
         self.results_dict = {'Voucher Number': 'Result'}
         self.invoices = []
 
@@ -22,18 +21,13 @@ class invoicePayer:
                 url = config["url"]
                 tenant = config["tenant"]
                 token = config["token"]
-        except Exception as e:
-            print(f"Config file \"{config}\" not found")
-            raise e
+        except ValueError:
+            raise ValueError(f"Config file \"{config}\" not found")
 
         # Create Requester
         try:
-            self.requester = api.requestObject(config["url"], config["tenant"])
-            self.requester.setToken(config["token"])
-            self.log.pauseLogging()
-            self.requester.testToken()
-            self.log.resumeLogging()
-            self.__updateToken()
+            self.requester = api.requestObject(url, tenant)
+            self.requester.setToken(token)
 
             # Create Session
             headers = {'Content-Type': 'application/json',
@@ -42,9 +36,10 @@ class invoicePayer:
                        'Accept': 'application/json'}
             self.session = requests.Session()
             self.session.headers = headers
-        except Exception as e:
-            print(e)
-            raise e
+        except Exception:
+            raise Exception
+        if self.requester.testToken() == -1:
+            raise Exception('Token rejected, new login credentials required')
 
     def __updateToken(self) -> int:
         with open(self.configFileName, "r") as readConf:
