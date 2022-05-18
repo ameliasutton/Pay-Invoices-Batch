@@ -26,7 +26,7 @@ class popupWindow:
 
 
 class inputSelectionMenu:
-    def __init__(self, config ,log):
+    def __init__(self, config, log):
         self.config = config
         self.logger = log
 
